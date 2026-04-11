@@ -15,7 +15,7 @@ function databaseErrorResponse(error: unknown) {
     return NextResponse.json(
       {
         error:
-          'Database is not configured. Set MONGODB_URI in .env.local and restart the dev server.',
+          'Database is not configured. Set MONGODB_URI (and optional MONGODB_DB_NAME) in your environment variables, then restart/redeploy the app.',
       },
       { status: 500 }
     );

@@ -27,6 +27,17 @@ Single-app Next.js project with App Router frontend and API routes backed by Mon
 
 App runs on port `3000`.
 
+## Deployment (Important)
+
+Do not rely on `.env.local` in production. Configure environment variables in your hosting provider dashboard.
+
+Required variables:
+
+1. `MONGODB_URI` (for example: `mongodb://127.0.0.1:27017` for local Mongo, or your Atlas URI in production)
+2. `MONGODB_DB_NAME` (optional, defaults to `modern_agrarian`)
+
+After setting variables, restart or redeploy so the server picks them up.
+
 ## API Endpoints
 
 1. `GET /api/health` - health check

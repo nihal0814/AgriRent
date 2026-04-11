@@ -14,7 +14,9 @@ function getMongoClientPromise(): Promise<MongoClient> {
 
   const uri = process.env.MONGODB_URI;
   if (!uri) {
-    throw new Error('Missing MONGODB_URI. Add it to .env.local.');
+    throw new Error(
+      'Missing MONGODB_URI. Set it in environment variables (local .env.local for dev, hosting provider settings for deployment).'
+    );
   }
 
   const client = new MongoClient(uri);
