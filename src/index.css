@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-headline: "Work Sans", sans-serif;
+
+  --color-primary: #154212;
+  --color-primary-container: #2d5a27;
+  --color-on-primary-container: #9dd090;
+  
+  --color-secondary: #785900;
+  --color-secondary-container: #fcc019;
+  --color-on-secondary-container: #6c5000;
+
+  --color-background: #f5fcef;
+  --color-surface: #f5fcef;
+  --color-surface-container-low: #eff6e9;
+  --color-surface-container-high: #e3eade;
+  --color-surface-container-highest: #dee5d8;
+  
+  --color-on-surface: #171d16;
+  --color-on-surface-variant: #42493e;
+  --color-outline: #72796e;
+  --color-outline-variant: #c2c9bb;
+
+  --radius-full: 0.75rem;
+  --radius-xl: 0.5rem;
+  --radius-lg: 0.25rem;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-sans;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
+  }
+}
+
+.glass-effect {
+  @apply bg-white/80 backdrop-blur-md;
+}
+
+.tonal-shift-bg {
+  background-color: rgba(233, 240, 228, 0.5);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
