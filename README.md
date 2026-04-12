@@ -38,9 +38,26 @@ Required variables:
 
 After setting variables, restart or redeploy so the server picks them up.
 
+## Move to MongoDB Atlas
+
+1. Create an Atlas cluster.
+2. Create a database user with `readWrite` access to your app database.
+3. Add network access entries for all app egress IPs.
+4. Copy the Atlas Node.js connection string and fill in your user/password.
+5. Set environment variables:
+   - `MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-host>/?retryWrites=true&w=majority`
+   - `MONGODB_DB_NAME=modern_agrarian`
+6. Restart local dev server or redeploy production.
+
+Notes:
+
+1. URL-encode special characters in passwords.
+2. Keep `MONGODB_DB_NAME` explicit so data lands in the expected database.
+3. Use `GET /api/health` to verify app + database connectivity after migration.
+
 ## API Endpoints
 
-1. `GET /api/health` - health check
+1. `GET /api/health` - health check with MongoDB ping
 2. `GET /api/equipment` - list equipment
 3. `POST /api/equipment` - create equipment
 4. `POST /api/bookings` - create a confirmed booking for selected equipment
