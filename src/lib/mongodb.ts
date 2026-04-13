@@ -1,7 +1,6 @@
 import { Db, MongoClient } from 'mongodb';
 
 declare global {
-  // eslint-disable-next-line no-var
   var mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
@@ -12,7 +11,7 @@ function getMongoClientPromise(): Promise<MongoClient> {
     return global.mongoClientPromise;
   }
 
-  const uri = process.env.MONGODB_URI;
+  const uri = process.env.MONGODB_URI?.trim();
   if (!uri) {
     throw new Error(
       'Missing MONGODB_URI. Set it in environment variables (local .env.local for dev, hosting provider settings for deployment).'
