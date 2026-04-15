@@ -19,41 +19,30 @@ Single-app Next.js project with App Router frontend and API routes backed by Mon
 
 1. Install dependencies:
    `npm install`
-2. Create local env file from [.env.example](.env.example):
-   `copy .env.example .env.local`
-3. Update `.env.local` with your MongoDB connection settings.
-3. Run the app:
+2. Make sure a local MongoDB server is running on `127.0.0.1:27017`.
+3. Create `.env.local` with:
+   ```
+   MONGODB_URI=mongodb://127.0.0.1:27017
+   MONGODB_DB_NAME=modern_agrarian
+   AUTH_SESSION_TTL_DAYS=7
+   ```
+4. Run the app:
    `npm run dev`
 
 App runs on port `3000`.
 
-## Deployment (Important)
+## Environment Variables
 
-Do not rely on `.env.local` in production. Configure environment variables in your hosting provider dashboard.
+The app uses local MongoDB by default.
 
-Required variables:
+1. `MONGODB_URI` (optional)
+   - Defaults to `mongodb://127.0.0.1:27017`
+2. `MONGODB_DB_NAME` (optional)
+   - Defaults to `modern_agrarian`
+3. `AUTH_SESSION_TTL_DAYS` (optional)
+   - Defaults are handled in auth logic if omitted
 
-1. `MONGODB_URI` (for example: `mongodb://127.0.0.1:27017` for local Mongo, or your Atlas URI in production)
-2. `MONGODB_DB_NAME` (optional, defaults to `modern_agrarian`)
-
-After setting variables, restart or redeploy so the server picks them up.
-
-## Move to MongoDB Atlas
-
-1. Create an Atlas cluster.
-2. Create a database user with `readWrite` access to your app database.
-3. Add network access entries for all app egress IPs.
-4. Copy the Atlas Node.js connection string and fill in your user/password.
-5. Set environment variables:
-   - `MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-host>/?retryWrites=true&w=majority`
-   - `MONGODB_DB_NAME=modern_agrarian`
-6. Restart local dev server or redeploy production.
-
-Notes:
-
-1. URL-encode special characters in passwords.
-2. Keep `MONGODB_DB_NAME` explicit so data lands in the expected database.
-3. Use `GET /api/health` to verify app + database connectivity after migration.
+After changing environment variables, restart the app so the server picks them up.
 
 ## API Endpoints
 

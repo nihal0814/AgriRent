@@ -4,19 +4,16 @@ declare global {
   var mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-const dbName = process.env.MONGODB_DB_NAME ?? 'modern_agrarian';
+const DEFAULT_MONGODB_URI = 'mongodb://127.0.0.1:27017';
+const dbName = process.env.MONGODB_DB_NAME?.trim() || 'modern_agrarian';
 
 function getMongoClientPromise(): Promise<MongoClient> {
   if (global.mongoClientPromise) {
     return global.mongoClientPromise;
   }
 
-  const uri = process.env.MONGODB_URI?.trim();
-  if (!uri) {
-    throw new Error(
-      'Missing MONGODB_URI. Set it in environment variables (local .env.local for dev, hosting provider settings for deployment).'
-    );
-  }
+  const configuredUri = process.env.MONGODB_URI?.trim();
+  const uri = configuredUri && configuredUri.length > 0 ? configuredUri : DEFAULT_MONGODB_URI;
 
   const client = new MongoClient(uri);
   global.mongoClientPromise = client.connect();
