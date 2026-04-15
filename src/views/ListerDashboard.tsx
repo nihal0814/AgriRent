@@ -48,6 +48,14 @@ type DeleteListingResponse = {
   error?: string;
 };
 
+type EarningsWindow = 'weekly' | 'monthly';
+
+type EarningsBar = {
+  label: string;
+  total: number;
+  isCurrent: boolean;
+};
+
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=1200&q=80';
 
@@ -80,6 +88,74 @@ function formatBookingDate(value: string): string {
   });
 }
 
+function parseIsoDate(value: string): Date | null {
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  return parsedDate;
+}
+
+function buildWeeklyEarningsBars(bookings: BookingConfirmationData[]): EarningsBar[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const offset = 6 - index;
+    const bucketStart = new Date(today);
+    bucketStart.setDate(today.getDate() - offset);
+    const bucketEnd = new Date(bucketStart);
+    bucketEnd.setDate(bucketStart.getDate() + 1);
+
+    const total = bookings.reduce((sum, booking) => {
+      const createdAt = parseIsoDate(booking.createdAt);
+      if (!createdAt) {
+        return sum;
+      }
+
+      return createdAt >= bucketStart && createdAt < bucketEnd ? sum + booking.total : sum;
+    }, 0);
+
+    return {
+      label: bucketStart.toLocaleDateString(undefined, { weekday: 'short' }),
+      total,
+      isCurrent: offset === 0,
+    };
+  });
+}
+
+function buildMonthlyEarningsBars(bookings: BookingConfirmationData[]): EarningsBar[] {
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  return Array.from({ length: 6 }, (_, index) => {
+    const offset = 5 - index;
+    const bucketStart = new Date(
+      currentMonthStart.getFullYear(),
+      currentMonthStart.getMonth() - offset,
+      1
+    );
+    const bucketEnd = new Date(bucketStart.getFullYear(), bucketStart.getMonth() + 1, 1);
+
+    const total = bookings.reduce((sum, booking) => {
+      const createdAt = parseIsoDate(booking.createdAt);
+      if (!createdAt) {
+        return sum;
+      }
+
+      return createdAt >= bucketStart && createdAt < bucketEnd ? sum + booking.total : sum;
+    }, 0);
+
+    return {
+      label: bucketStart.toLocaleDateString(undefined, { month: 'short' }),
+      total,
+      isCurrent: offset === 0,
+    };
+  });
+}
+
 export const ListerDashboard: React.FC<ListerDashboardProps> = ({ onNavigate, onOpenEquipmentDetails }) => {
   const { t } = useI18n();
   const [equipment, setEquipment] = useState<ApiEquipment[]>([]);
@@ -94,6 +170,10 @@ export const ListerDashboard: React.FC<ListerDashboardProps> = ({ onNavigate, on
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [requestErrorMessage, setRequestErrorMessage] = useState('');
   const [isUpdatingRequestId, setIsUpdatingRequestId] = useState<string | null>(null);
+  const [ownerBookings, setOwnerBookings] = useState<BookingConfirmationData[]>([]);
+  const [isLoadingEarnings, setIsLoadingEarnings] = useState(true);
+  const [earningsErrorMessage, setEarningsErrorMessage] = useState('');
+  const [earningsWindow, setEarningsWindow] = useState<EarningsWindow>('weekly');
 
   const loadEquipment = useCallback(async () => {
     setIsLoadingEquipment(true);
@@ -151,6 +231,33 @@ export const ListerDashboard: React.FC<ListerDashboardProps> = ({ onNavigate, on
     void loadPendingRequests();
   }, [loadPendingRequests]);
 
+  const loadOwnerBookings = useCallback(async () => {
+    setIsLoadingEarnings(true);
+    setEarningsErrorMessage('');
+
+    try {
+      const response = await fetch('/api/bookings?scope=owner');
+      const data = (await response.json().catch(() => null)) as BookingsResponse | null;
+
+      if (!response.ok) {
+        setOwnerBookings([]);
+        setEarningsErrorMessage(data?.error ?? t('Unable to load earnings data right now.'));
+        return;
+      }
+
+      setOwnerBookings(data?.bookings ?? []);
+    } catch {
+      setOwnerBookings([]);
+      setEarningsErrorMessage(t('Network error. Please try again.'));
+    } finally {
+      setIsLoadingEarnings(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void loadOwnerBookings();
+  }, [loadOwnerBookings]);
+
   const handleBookingAction = async (bookingId: string, action: 'approve' | 'reject') => {
     setIsUpdatingRequestId(bookingId);
     setRequestErrorMessage('');
@@ -175,6 +282,7 @@ export const ListerDashboard: React.FC<ListerDashboardProps> = ({ onNavigate, on
       }
 
       setPendingRequests((previous) => previous.filter((request) => request.id !== bookingId));
+      void loadOwnerBookings();
     } catch {
       setRequestErrorMessage(t('Network error. Please try again.'));
     } finally {
@@ -256,6 +364,42 @@ export const ListerDashboard: React.FC<ListerDashboardProps> = ({ onNavigate, on
     );
   }, [equipment]);
 
+  const confirmedOwnerBookings = useMemo(
+    () => ownerBookings.filter((booking) => booking.status === 'confirmed'),
+    [ownerBookings]
+  );
+
+  const earningsBars = useMemo(() => {
+    if (earningsWindow === 'weekly') {
+      return buildWeeklyEarningsBars(confirmedOwnerBookings);
+    }
+
+    return buildMonthlyEarningsBars(confirmedOwnerBookings);
+  }, [confirmedOwnerBookings, earningsWindow]);
+
+  const maxEarningsValue = useMemo(
+    () => Math.max(1, ...earningsBars.map((bar) => bar.total)),
+    [earningsBars]
+  );
+
+  const totalPayout = useMemo(
+    () => confirmedOwnerBookings.reduce((sum, booking) => sum + booking.total, 0),
+    [confirmedOwnerBookings]
+  );
+
+  const activeHours = useMemo(
+    () => confirmedOwnerBookings.reduce((sum, booking) => sum + Math.max(booking.rentalDays, 0) * 24, 0),
+    [confirmedOwnerBookings]
+  );
+
+  const utilizationPercentage = useMemo(() => {
+    if (equipment.length === 0) {
+      return 0;
+    }
+
+    return Math.round((statusCounts.inUse / equipment.length) * 100);
+  }, [equipment.length, statusCounts.inUse]);
+
   const toBadgeClasses = (status: EquipmentStatus) => {
     if (status === 'in-use') {
       return 'bg-green-100 text-green-800';
@@ -319,38 +463,86 @@ export const ListerDashboard: React.FC<ListerDashboardProps> = ({ onNavigate, on
               <p className="text-sm text-on-surface-variant">{t('Net revenue across all active units')}</p>
             </div>
             <div className="flex gap-2 bg-surface-container-high p-1 rounded-xl">
-              <button className="px-4 py-1.5 text-xs font-bold bg-white rounded-lg shadow-sm text-primary">{t('Weekly')}</button>
-              <button className="px-4 py-1.5 text-xs font-bold text-on-surface-variant hover:bg-white/50 transition-colors rounded-lg">{t('Monthly')}</button>
+              <button
+                onClick={() => setEarningsWindow('weekly')}
+                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  earningsWindow === 'weekly'
+                    ? 'bg-white shadow-sm text-primary'
+                    : 'text-on-surface-variant hover:bg-white/50'
+                }`}
+              >
+                {t('Weekly')}
+              </button>
+              <button
+                onClick={() => setEarningsWindow('monthly')}
+                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  earningsWindow === 'monthly'
+                    ? 'bg-white shadow-sm text-primary'
+                    : 'text-on-surface-variant hover:bg-white/50'
+                }`}
+              >
+                {t('Monthly')}
+              </button>
             </div>
           </div>
-          
-          {/* Chart Placeholder */}
-          <div className="relative h-64 w-full flex items-end gap-2 px-2">
-            {[40, 65, 55, 85, 45, 95, 70].map((height, i) => (
-              <div 
-                key={i}
-                className={`flex-1 rounded-t-xl transition-all hover:bg-secondary-container ${i === 5 ? 'bg-primary' : 'bg-surface-container-highest'}`}
-                style={{ height: `${height}%` }}
-              >
-                {i === 5 && (
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-on-surface text-white text-[10px] py-1 px-2 rounded shadow-md">₹4,280</div>
-                )}
-              </div>
-            ))}
-          </div>
+
+          {isLoadingEarnings && (
+            <div className="h-64 w-full rounded-2xl bg-surface-container-high border border-outline-variant/10 flex items-center justify-center text-sm font-medium text-on-surface-variant">
+              {t('Loading earnings chart...')}
+            </div>
+          )}
+
+          {!isLoadingEarnings && earningsErrorMessage && (
+            <div className="h-64 w-full rounded-2xl bg-surface-container-high border border-outline-variant/10 flex items-center justify-center text-sm font-medium text-on-surface-variant px-6 text-center">
+              {earningsErrorMessage}
+            </div>
+          )}
+
+          {!isLoadingEarnings && !earningsErrorMessage && (
+            <div className="h-64 w-full flex items-end gap-3 px-2">
+              {earningsBars.map((bar, index) => {
+                const scaledHeight =
+                  bar.total <= 0
+                    ? 6
+                    : Math.max(12, Math.round((bar.total / maxEarningsValue) * 100));
+
+                return (
+                  <div key={`${bar.label}-${index}`} className="flex-1 h-full flex flex-col justify-end items-center gap-2">
+                    {bar.isCurrent && (
+                      <span className="text-[10px] font-black text-primary">{formatINR(bar.total)}</span>
+                    )}
+                    <div className="w-full h-[78%] flex items-end">
+                      <div
+                        className={`w-full rounded-t-xl transition-colors ${
+                          bar.isCurrent
+                            ? 'bg-primary'
+                            : 'bg-surface-container-highest hover:bg-secondary-container'
+                        }`}
+                        style={{ height: `${scaledHeight}%` }}
+                        title={`${bar.label}: ${formatINR(bar.total)}`}
+                      />
+                    </div>
+                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide">
+                      {bar.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-outline-variant/10">
             <div>
               <span className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">{t('Total Payout')}</span>
-              <span className="text-2xl font-black text-primary">{formatINR(statusCounts.totalDailyRate)}</span>
+              <span className="text-2xl font-black text-primary">{formatINR(totalPayout)}</span>
             </div>
             <div>
               <span className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">{t('Active Hours')}</span>
-              <span className="text-2xl font-black text-primary">342h</span>
+              <span className="text-2xl font-black text-primary">{activeHours}h</span>
             </div>
             <div>
               <span className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">{t('Utilization')}</span>
-              <span className="text-2xl font-black text-secondary">82%</span>
+              <span className="text-2xl font-black text-secondary">{utilizationPercentage}%</span>
             </div>
           </div>
         </section>

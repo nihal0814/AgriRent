@@ -212,6 +212,7 @@ export default function App() {
         <TopBar
           onNavigate={handleNavigate}
           isAuthenticated={Boolean(authUser)}
+          authUserId={authUser?.id ?? null}
           onLogout={handleLogout}
           currentPage={currentPage}
           searchQuery={searchQuery}

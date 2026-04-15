@@ -1,5 +1,6 @@
 import React from 'react';
 import { 
+  Store,
   LayoutDashboard, 
   ClipboardList, 
   MessageSquare, 
@@ -21,6 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
   const { t } = useI18n();
 
   const navItems: Array<{ id: Page; label: string; icon: LucideIcon }> = [
+    { id: 'landing', label: t('Marketplace'), icon: Store },
     { id: 'lister-dashboard', label: t('Dashboard'), icon: LayoutDashboard },
     { id: 'renter-dashboard', label: t('Active Rentals'), icon: ClipboardList },
     { id: 'messages', label: t('Message Center'), icon: MessageSquare },
